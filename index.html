@@ -483,10 +483,10 @@
 
               <div class="bg-purple-50 dark:bg-purple-950/40 p-2 rounded border border-purple-300 flex flex-col justify-center">
                 <label class="flex items-center justify-between font-bold text-purple-900 dark:text-purple-300 cursor-pointer">
-                  <span>🔒 Print Private Items (PIN: 5616)</span>
+                  <span>🔒 Print Private Items</span>
                   <input type="checkbox" id="chkPrintPrivate" onchange="handlePrintPrivateToggle(this)" class="w-4 h-4 accent-purple-600">
                 </label>
-                <span class="text-[9px] text-purple-600 mt-0.5">ऑन करने के लिए पासवर्ड 5616 आवश्यक है।</span>
+                <span class="text-[9px] text-purple-600 mt-0.5">ऑन करने के लिए पासवर्ड आवश्यक है।</span>
               </div>
             </div>
 
@@ -1602,7 +1602,7 @@
 
     function handlePrintPrivateToggle(cb) {
       if (cb.checked) {
-        const pin = prompt('प्राइवेट आइटम्स को प्रिंट में शामिल करने के लिए पासवर्ड दर्ज करें (5616):');
+        const pin = prompt('प्राइवेट आइटम्स को प्रिंट में शामिल करने के लिए पासवर्ड दर्ज करें:');
         if (pin !== '5616') {
           alert('❌ गलत पासवर्ड! प्राइवेट आइटम्स प्रिंट नहीं किए जाएंगे।');
           cb.checked = false;
