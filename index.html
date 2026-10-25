@@ -2230,7 +2230,7 @@
 
     function toggleSafeMode() {
       if (isSafeMode) {
-        const pin = prompt('प्राइवेट आइटम्स अनलॉक करने के लिए पिन डालें (Default: 1990):');
+        const pin = prompt('प्राइवेट आइटम्स अनलॉक करने के लिए पिन डालें (Default:..90):');
         if (pin === null) return;
         isSafeMode = false;
         document.getElementById('safeModeBtn').className = 'flex flex-col items-center gap-0.5 text-rose-400 px-2 py-0.5 rounded';
