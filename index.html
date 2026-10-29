@@ -3056,245 +3056,42 @@
         }
       });
     });
-        // ============================================================================
-    // HYBRID MERGER: LABTRACK ADVANCE (V5) + LABTRACK PRO (V6 CARD/BOX VIEW & SHEET SYNC)
-    // Paste this right before </script> in LabTrackPro_V5.html
-    // ============================================================================
-    let currentUiMode = localStorage.getItem('MBHS_UI_MODE') || 'TABLE'; // 'TABLE', 'CARDS', 'BOXES'
-
+          // ================= CLEAN TWO-WAY SYNC & APP SWITCHER FOR LABTRACK ADVANCE =================
     window.addEventListener('DOMContentLoaded', () => {
-      injectHybridProInterface();
-      renderHybridProView();
+      // 1. Top Bar में LabTrackPro पर स्विच करने का साफ बटन जोड़ें
+      const zoomSel = document.getElementById('mainZoomSelect');
+      if (zoomSel && !document.getElementById('goToProBtn')) {
+        const btn = document.createElement('a');
+        btn.id = 'goToProBtn';
+        btn.href = 'https://san5616.github.io/LabTrackPro/';
+        btn.className = 'shrink-0 bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-xs no-underline';
+        btn.innerHTML = '📱 <span>Pro View</span>';
+        zoomSel.parentNode.insertBefore(btn, zoomSel);
+      }
+
+      // 2. वेबसाइट खुलते ही Google Sheet से ताज़ा डेटा अपने आप (Auto-Pull) लोड करें
+      autoPullFromMasterSheet();
     });
 
-    function injectHybridProInterface() {
-      // 1. Add View Switcher Button in Top Header
-      const zoomSel = document.getElementById('mainZoomSelect');
-      if (zoomSel && !document.getElementById('hybridViewBtn')) {
-        const switchBtn = document.createElement('button');
-        switchBtn.id = 'hybridViewBtn';
-        switchBtn.onclick = cycleUiMode;
-        switchBtn.className = 'shrink-0 bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-xs cursor-pointer';
-        updateSwitchBtnLabel(switchBtn);
-        zoomSel.parentNode.insertBefore(switchBtn, zoomSel);
-      }
-
-      // 2. Add 6-Sheet Live Tab Pills Bar below Header
-      const headerEl = document.querySelector('header');
-      if (headerEl && !document.getElementById('proSheetTabBar')) {
-        const bar = document.createElement('div');
-        bar.id = 'proSheetTabBar';
-        bar.className = 'flex items-center justify-between gap-1.5 pt-1 mt-1 border-t border-slate-200 dark:border-slate-800 overflow-x-auto no-scrollbar text-[10.5px]';
-        bar.innerHTML = `
-          <div class="flex items-center gap-1 shrink-0">
-            <button onclick="applySheetTab('ALL')" data-stab="ALL" class="stab-pill bg-indigo-600 text-white px-2.5 py-0.5 rounded-full font-bold">📊 All Master (382)</button>
-            <button onclick="applySheetTab('9-10')" data-stab="9-10" class="stab-pill bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full font-bold">🎒 Class 9-10</button>
-            <button onclick="applySheetTab('11-12')" data-stab="11-12" class="stab-pill bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full font-bold">🎓 Class 11-12</button>
-            <button onclick="applySheetTab('Physics')" data-stab="Physics" class="stab-pill bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full font-bold">⚛️ Physics</button>
-            <button onclick="applySheetTab('Chemistry')" data-stab="Chemistry" class="stab-pill bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full font-bold">🧪 Chemistry</button>
-            <button onclick="applySheetTab('Biology')" data-stab="Biology" class="stab-pill bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full font-bold">🧬 Biology</button>
-          </div>
-          <div class="flex items-center gap-1 shrink-0">
-            <button onclick="pullFromGoogleSheet()" class="bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 px-2 py-0.5 rounded-full font-bold" title="Google Sheet से ताज़ा डेटा लाएं">⬇️ Pull Sheet</button>
-            <button onclick="pushToCloud(true)" class="bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-300 px-2 py-0.5 rounded-full font-bold" title="Google Sheet के 6 टैब्स में सेव करें">⬆️ Push Sheet</button>
-          </div>
-        `;
-        headerEl.appendChild(bar);
-      }
-
-      // 3. Create Pro Card & Box Container inside <main>
-      const mainEl = document.querySelector('main');
-      if (mainEl && !document.getElementById('proCardViewContainer')) {
-        const cardContainer = document.createElement('div');
-        cardContainer.id = 'proCardViewContainer';
-        cardContainer.className = 'hidden p-2.5 max-w-4xl mx-auto space-y-2.5';
-        mainEl.appendChild(cardContainer);
-      }
-    }
-
-    function updateSwitchBtnLabel(btn) {
-      if (!btn) btn = document.getElementById('hybridViewBtn');
-      if (!btn) return;
-      if (currentUiMode === 'TABLE') btn.innerHTML = '<i class="fa-solid fa-grip"></i> <span>📱 Pro Cards</span>';
-      else if (currentUiMode === 'CARDS') btn.innerHTML = '<i class="fa-solid fa-boxes-stacked"></i> <span>📦 Boxes View</span>';
-      else btn.innerHTML = '<i class="fa-solid fa-table-list"></i> <span>📋 Register Table</span>';
-    }
-
-    function cycleUiMode() {
-      if (currentUiMode === 'TABLE') currentUiMode = 'CARDS';
-      else if (currentUiMode === 'CARDS') currentUiMode = 'BOXES';
-      else currentUiMode = 'TABLE';
-      localStorage.setItem('MBHS_UI_MODE', currentUiMode);
-      updateSwitchBtnLabel();
-      renderHybridProView();
-    }
-
-    function applySheetTab(tab) {
-      document.querySelectorAll('.stab-pill').forEach(b => {
-        b.className = b.dataset.stab === tab
-          ? 'stab-pill bg-indigo-600 text-white px-2.5 py-0.5 rounded-full font-bold shadow-2xs'
-          : 'stab-pill bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2.5 py-0.5 rounded-full font-bold';
-      });
-      const clsSel = document.getElementById('fltClass');
-      const subSel = document.getElementById('fltSubject');
-      if (tab === 'ALL') { clsSel.value = 'ALL'; subSel.value = 'ALL'; }
-      else if (tab === '9-10' || tab === '11-12') { clsSel.value = tab; subSel.value = 'ALL'; }
-      else { clsSel.value = 'ALL'; subSel.value = tab; }
-      renderTable();
-    }
-
-    // Hook into existing renderTable() so Card View & Box View auto-update on every filter/verify
-    const _origRenderTable = renderTable;
-    renderTable = function () {
-      _origRenderTable();
-      renderHybridProView();
-    };
-
-    function renderHybridProView() {
-      const tableWrap = document.getElementById('mainTableZoomWrapper');
-      const proWrap = document.getElementById('proCardViewContainer');
-      if (!tableWrap || !proWrap) return;
-
-      if (currentUiMode === 'TABLE') {
-        tableWrap.classList.remove('hidden');
-        proWrap.classList.add('hidden');
-        return;
-      }
-
-      tableWrap.classList.add('hidden');
-      proWrap.classList.remove('hidden');
-
-      const { pool, filtered } = getFilteredItems();
-      const verCount = filtered.filter(i => i.verified).length;
-      const totQty = filtered.reduce((s, i) => s + Number(i.qty || 0), 0);
-      const totVal = filtered.reduce((s, i) => s + Number(i.amt || 0), 0);
-
-      const kpiStrip = `
-        <div class="grid grid-cols-4 gap-2 mb-2">
-          <div class="bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-center shadow-2xs">
-            <div class="text-base font-black text-indigo-600 dark:text-indigo-400">${filtered.length}</div>
-            <div class="text-[9.5px] font-bold text-slate-500">Items Listed</div>
-          </div>
-          <div class="bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-center shadow-2xs">
-            <div class="text-base font-black text-emerald-600">${verCount}</div>
-            <div class="text-[9.5px] font-bold text-slate-500">✅ Verified</div>
-          </div>
-          <div class="bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-center shadow-2xs">
-            <div class="text-base font-black text-violet-600">${totQty}</div>
-            <div class="text-[9.5px] font-bold text-slate-500">Total Units</div>
-          </div>
-          <div class="bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-center shadow-2xs">
-            <div class="text-sm font-black text-amber-600">₹${totVal.toLocaleString('en-IN')}</div>
-            <div class="text-[9.5px] font-bold text-slate-500">Total Value</div>
-          </div>
-        </div>
-      `;
-
-      if (currentUiMode === 'BOXES') {
-        // Group by Godrej / Box
-        const groups = {};
-        filtered.forEach(i => {
-          const key = i.godrej || 'Unpacked / In Carton Box';
-          if (!groups[key]) groups[key] = [];
-          groups[key].push(i);
-        });
-
-        const boxCards = Object.entries(groups).map(([godrejName, items]) => {
-          const vCnt = items.filter(x => x.verified).length;
-          const labName = items[0]?.lab || 'Science Lab';
-          return `
-            <div onclick="document.getElementById('fltGodrej').value='${godrejName.replace(/'/g, "\\'")}'; currentUiMode='CARDS'; updateSwitchBtnLabel(); renderTable();" class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 border border-slate-200 dark:border-slate-700 shadow-xs hover:border-indigo-500 cursor-pointer transition flex flex-col justify-between">
-              <div>
-                <div class="flex justify-between items-center mb-1.5">
-                  <span class="bg-indigo-600 text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded-md">📦 ${items.length} Items</span>
-                  <span class="text-[10px] font-bold text-emerald-600">✅ ${vCnt}/${items.length} Verified</span>
-                </div>
-                <div class="font-extrabold text-sm text-slate-900 dark:text-white">${godrejName}</div>
-                <div class="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold mt-0.5">📍 ${labName}</div>
-              </div>
-              <div class="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center text-[10.5px] text-slate-500">
-                <span>Tap to open items inside</span>
-                <span class="font-bold text-indigo-600">Open →</span>
-              </div>
-            </div>
-          `;
-        }).join('');
-
-        proWrap.innerHTML = kpiStrip + `<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">${boxCards}</div>`;
-        return;
-      }
-
-      // PRO CARDS VIEW (User-Friendly Mobile Cards with 1-Click Verify & +/- Stepper)
-      const cardsHtml = filtered.map(i => {
-        const verBadge = i.verified
-          ? `<button onclick="toggleVerifySingle(${i.id})" class="bg-emerald-600 text-white px-2.5 py-1 rounded-lg font-bold text-[10.5px] flex items-center gap-1 shadow-2xs">✅ Verified</button>`
-          : `<button onclick="toggleVerifySingle(${i.id})" class="bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-400 px-2.5 py-1 rounded-lg font-bold text-[10.5px] flex items-center gap-1">⬜ Verify</button>`;
-
-        return `
-          <div class="bg-white dark:bg-slate-800 rounded-2xl p-3 border ${i.verified ? 'border-emerald-300 dark:border-emerald-800/70' : 'border-slate-200 dark:border-slate-700'} shadow-2xs flex items-center gap-3">
-            <div onclick="openItemModal(${i.id})" class="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0 overflow-hidden cursor-pointer border">
-              ${i.photo ? `<img src="${i.photo}" class="w-full h-full object-cover">` : `<span class="font-mono font-bold text-xs text-indigo-600">#${i.sr}</span>`}
-            </div>
-            <div class="flex-1 min-w-0">
-              <div onclick="openItemModal(${i.id})" class="font-extrabold text-xs sm:text-sm text-slate-900 dark:text-white truncate cursor-pointer">
-                #${i.sr} ${i.name}
-              </div>
-              <div class="flex flex-wrap items-center gap-1 mt-1 text-[10px] font-semibold">
-                <span class="bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded">📘 ${i.classGroup}</span>
-                <span class="bg-violet-50 dark:bg-violet-950 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded">🔬 ${shortSubj(i.subject)}</span>
-                <span class="bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">🗄️ ${i.godrej} (${i.partition})</span>
-                <span class="text-emerald-700 dark:text-emerald-400 font-bold">Qty: ${i.qty} (${i.workingQty} OK)</span>
-              </div>
-            </div>
-            <div class="flex flex-col items-end gap-1.5 shrink-0">
-              ${verBadge}
-              <div class="flex items-center gap-1">
-                <button onclick="quickProQty(${i.id}, -1)" class="w-6 h-6 rounded bg-slate-100 dark:bg-slate-700 font-bold text-xs">−</button>
-                <span class="font-bold text-xs px-1">${i.qty}</span>
-                <button onclick="quickProQty(${i.id}, 1)" class="w-6 h-6 rounded bg-slate-100 dark:bg-slate-700 font-bold text-xs">+</button>
-                <button onclick="openItemModal(${i.id})" class="w-6 h-6 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 text-xs ml-1"><i class="fa-solid fa-pen"></i></button>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      proWrap.innerHTML = kpiStrip + `<div class="space-y-2">${cardsHtml}</div>`;
-    }
-
-    function quickProQty(id, delta) {
-      const item = inventory.find(x => x.id === id);
-      if (!item) return;
-      item.qty = Math.max(0, Number(item.qty || 0) + delta);
-      item.workingQty = Math.max(0, item.qty - Number(item.damagedQty || 0));
-      item.amt = item.qty * Number(item.rate || 0);
-      saveAll();
-      renderTable();
-    }
-
-    // Two-Way Pull from Google Sheets
-    async function pullFromGoogleSheet() {
+    async function autoPullFromMasterSheet() {
       const cfg = JSON.parse(localStorage.getItem(LS_CLOUD) || '{}');
-      if (!cfg.gasUrl) {
-        openModal('cloudModal');
-        return alert('कृपया पहले Cloud सेटिंग्स में अपना Google Apps Script URL पेस्ट करें!');
-      }
+      if (!cfg.gasUrl) return;
+      const dot = document.getElementById('cloudDot');
+      if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping absolute top-0.5 right-2';
       try {
         const res = await fetch(`${cfg.gasUrl}?action=pull`);
         const data = await res.json();
         if (data.ok && Array.isArray(data.items) && data.items.length > 0) {
           inventory = data.items;
-          saveAll(false);
+          localStorage.setItem(LS_DATA, JSON.stringify(inventory));
           renderTable();
-          alert(`✅ Google Sheet से ${data.items.length} आइटम्स सफलतापूर्वक लोड हो गए!`);
-        } else {
-          alert('ℹ️ Google Sheet अभी खाली है। पहले "⬆️ Push Sheet" दबाकर अपने 382 आइटम्स अपलोड करें।');
         }
-      } catch (err) {
-        alert('❌ Google Sheet से कनेक्ट करने में त्रुटि। सुनिश्चित करें कि Web App "Anyone" पर Deploy है।');
+        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 absolute top-0.5 right-2';
+      } catch (e) {
+        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-rose-500 absolute top-0.5 right-2';
       }
     }
-
+  
   </script>
 </body>
 </html>
