@@ -3432,7 +3432,155 @@
         if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-rose-500 absolute top-0.5 right-2';
       }
     }
- 
+     // ============================================================================
+    // UPGRADE: 
+    // 1. Recycle Bin (Restore & Permanent Delete) for Lab Room, Godrej & Partition
+    // 2. Remove / Delete Uploaded Item Photo Button (with ✕ overlay)
+    // ============================================================================
+
+    const LS_MASTER_TRASH = 'MBHS_MASTER_TRASH_V1';
+    let masterTrash = JSON.parse(localStorage.getItem(LS_MASTER_TRASH) || '{"labs":[],"godrejs":[],"partitions":[]}');
+
+    // अगर Godrej No. 2 गलती से डिलीट हो गया था, तो उसे एक बार वापस जोड़ दें
+    if (!masterLists.godrejs.includes('Godrej No. 2') && !(masterTrash.godrejs || []).includes('Godrej No. 2')) {
+      masterLists.godrejs.splice(2, 0, 'Godrej No. 2');
+      saveAll(false);
+    }
+
+    function saveMasterTrash() {
+      localStorage.setItem(LS_MASTER_TRASH, JSON.stringify(masterTrash));
+    }
+
+    // 1. OVERRIDE: Lab Room, Godrej & Partition Chips + Individual Recycle Bins
+    renderSettingChips = function () {
+      const makeChipsWithBin = (key, elId, labelName) => {
+        const container = document.getElementById(elId);
+        if (!container) return;
+
+        const activeChips = (masterLists[key] || []).map(val => {
+          const safeVal = val.replace(/'/g, "\\'");
+          return `
+            <span class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold flex items-center gap-1.5 shadow-2xs">
+              <span>${val}</span>
+              <button type="button" onclick="removeMasterItem('${key}','${safeVal}')" title="Move to Recycle Bin" class="text-rose-500 hover:text-rose-700 font-bold text-xs leading-none">×</button>
+            </span>`;
+        }).join('');
+
+        const trashList = masterTrash[key] || [];
+        const trashHtml = trashList.length > 0 ? `
+          <div class="w-full mt-2 p-2 rounded-lg bg-rose-50/70 dark:bg-rose-950/30 border border-dashed border-rose-300 dark:border-rose-800">
+            <div class="text-[10px] font-bold text-rose-700 dark:text-rose-300 mb-1 flex items-center justify-between">
+              <span>🗑️ ${labelName} Recycle Bin (${trashList.length})</span>
+              <span class="text-[9px] font-normal">↺ Restore | ✕ Delete Forever</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              ${trashList.map(tVal => {
+                const safeT = tVal.replace(/'/g, "\\'");
+                return `
+                  <span class="bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-800 px-2 py-0.5 rounded-full text-[10px] inline-flex items-center gap-1.5">
+                    <span class="line-through text-slate-400">${tVal}</span>
+                    <button type="button" onclick="restoreMasterItem('${key}','${safeT}')" title="Restore" class="text-emerald-600 hover:text-emerald-500 font-extrabold">↺</button>
+                    <button type="button" onclick="permDeleteMasterItem('${key}','${safeT}')" title="Delete Forever" class="text-rose-600 hover:text-rose-500 font-extrabold">✕</button>
+                  </span>`;
+              }).join('')}
+            </div>
+          </div>
+        ` : '';
+
+        container.innerHTML = activeChips + trashHtml;
+      };
+
+      makeChipsWithBin('labs', 'chipLabs', 'Lab Room');
+      makeChipsWithBin('godrejs', 'chipGodrejs', 'Godrej / Rack');
+      makeChipsWithBin('partitions', 'chipPartitions', 'Partition / Shelf');
+    };
+
+    removeMasterItem = function (key, val) {
+      if (!confirm(`"${val}" को हटाकर Recycle Bin में भेजें? (आप इसे नीचे से कभी भी Restore कर सकते हैं)`)) return;
+      masterLists[key] = (masterLists[key] || []).filter(x => x !== val);
+      if (!masterTrash[key]) masterTrash[key] = [];
+      if (!masterTrash[key].includes(val)) masterTrash[key].push(val);
+
+      saveMasterTrash();
+      saveAll();
+      populateAllDropdowns();
+      renderSettingChips();
+    };
+
+    window.restoreMasterItem = function (key, val) {
+      masterTrash[key] = (masterTrash[key] || []).filter(x => x !== val);
+      if (!masterLists[key].includes(val)) masterLists[key].push(val);
+
+      saveMasterTrash();
+      saveAll();
+      populateAllDropdowns();
+      renderSettingChips();
+    };
+
+    window.permDeleteMasterItem = function (key, val) {
+      if (!confirm(`⚠️ क्या आप "${val}" को हमेशा के लिए (Permanently) डिलीट करना चाहते हैं?`)) return;
+      masterTrash[key] = (masterTrash[key] || []).filter(x => x !== val);
+      saveMasterTrash();
+      renderSettingChips();
+    };
+
+    // 2. PHOTO DELETE / REMOVE BUTTON IN ADD/EDIT ITEM MODAL
+    function updatePhotoPreviewWithRemoveBtn(base64Str, kbText = '') {
+      const box = document.getElementById('photoPreviewBox');
+      const badge = document.getElementById('photoSizeBadge');
+      if (!box) return;
+
+      if (base64Str) {
+        box.className = "w-24 h-24 rounded-lg border-2 border-indigo-400 bg-slate-50 dark:bg-slate-800 flex items-center justify-center overflow-hidden relative";
+        box.innerHTML = `
+          <img src="${base64Str}" class="w-full h-full object-cover">
+          <button type="button" onclick="removeCurrentItemPhoto()" title="फोटो डिलीट करें (Remove Photo)"
+            class="absolute top-1 right-1 bg-rose-600 hover:bg-rose-700 text-white w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shadow-md">
+            ✕
+          </button>
+        `;
+        if (badge) {
+          badge.innerHTML = `
+            <span>${kbText || '✅ Photo Ready'}</span>
+            <button type="button" onclick="removeCurrentItemPhoto()" class="ml-1 text-rose-600 underline font-bold text-[9.5px]">🗑️ Remove Photo</button>
+          `;
+        }
+      } else {
+        box.className = "w-24 h-24 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center overflow-hidden relative";
+        box.innerHTML = '<i class="fa-solid fa-camera text-xl text-slate-400"></i>';
+        if (badge) badge.innerText = '';
+      }
+    }
+
+    window.removeCurrentItemPhoto = function () {
+      if (!confirm('क्या आप इस आइटम की फोटो को हटाना (Delete करना) चाहते हैं?')) return;
+      currentPhotoBase64 = '';
+      const camIn = document.getElementById('fCameraInput');
+      const galIn = document.getElementById('fGalleryInput');
+      if (camIn) camIn.value = '';
+      if (galIn) galIn.value = '';
+      updatePhotoPreviewWithRemoveBtn('');
+      markFormDirty();
+    };
+
+    // Hook into handlePhotoUpload & openItemModal so the Delete Photo button always appears
+    handlePhotoUpload = async function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const res = await compressImageUnder50KB(file);
+      currentPhotoBase64 = res.base64;
+      updatePhotoPreviewWithRemoveBtn(res.base64, `✅ ${res.kb} KB`);
+      markFormDirty();
+    };
+
+    const _origOpenItemModal = openItemModal;
+    openItemModal = function (id = null) {
+      _origOpenItemModal(id);
+      if (currentPhotoBase64) {
+        updatePhotoPreviewWithRemoveBtn(currentPhotoBase64, '✅ Saved Photo');
+      }
+    };
+
   
   </script>
 </body>
