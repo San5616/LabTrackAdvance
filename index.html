@@ -4242,8 +4242,7 @@
       }
       return pagesHtml;
     };
-
-        const masterPrintCss = document.createElement('style');
+    const masterPrintCss = document.createElement('style');
     masterPrintCss.innerHTML = `
       /* Screen preview A4 look */
       .p-page-card.orient-portrait {
@@ -4261,7 +4260,7 @@
         justify-content: space-between;
       }
 
-      /* Never stretch table rows vertically when only 3-4 items are on the last page */
+      /* Natural height for tables so rows never stretch unnaturally */
       .p-doc-table {
         flex: 0 0 auto !important;
         height: auto !important;
@@ -4308,7 +4307,8 @@
         .p-page-card.orient-landscape {
           min-height: 196mm !important;
         }
-        /* Last page stays natural height at the top so 3-4 rows + QR code sit cleanly together */
+
+        /* Crucial Fix: Last page keeps natural height at top, no forced stretching, summary & QR sit right below rows */
         .p-page-card:last-child {
           min-height: 0 !important;
           height: auto !important;
@@ -4316,6 +4316,7 @@
           page-break-after: auto !important;
           break-after: auto !important;
         }
+
         .p-doc-table {
           width: 100% !important;
           border-collapse: collapse !important;
@@ -4331,22 +4332,23 @@
         }
         .p-page-card.density-compact .p-doc-table th,
         .p-page-card.density-compact .p-doc-table td {
-          padding: 4.5px 5px !important;
-          font-size: 10px !important;
-          line-height: 1.25 !important;
+          padding: 4px 5px !important;
+          font-size: 9.5px !important;
+          line-height: 1.22 !important;
           border: 1px solid #000 !important;
         }
         .p-page-card.density-normal .p-doc-table th,
         .p-page-card.density-normal .p-doc-table td {
-          padding: 6px 6px !important;
-          font-size: 11px !important;
-          line-height: 1.32 !important;
+          padding: 5.5px 6px !important;
+          font-size: 10.5px !important;
+          line-height: 1.28 !important;
           border: 1px solid #000 !important;
         }
       }
     `;
     document.head.appendChild(masterPrintCss);
 
+      
   </script>
 </body>
 </html>
