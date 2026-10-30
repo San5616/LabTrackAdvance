@@ -4101,21 +4101,43 @@
       updateLivePrintPreview();
       openModal('printModal');
     };
+    // ============================================================================
+    // MASTER FIX 1: UNIFY GOOGLE SHEET URL & PERSIST PHOTOS ACROSS ALL BROWSERS
+    // ============================================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      const cloudCfg = JSON.parse(localStorage.getItem(LS_CLOUD) || '{}');
+      if (cloudCfg.gasUrl !== HARDCODED_GAS_URL) {
+        cloudCfg.gasUrl = HARDCODED_GAS_URL;
+        cloudCfg.autoSync = true;
+        localStorage.setItem(LS_CLOUD, JSON.stringify(cloudCfg));
+        if (document.getElementById('cfgGasUrl')) {
+          document.getElementById('cfgGasUrl').value = HARDCODED_GAS_URL;
+        }
+      }
 
-            // ============================================================================
-    // PERFECT A4 PRINT AUTO-FIT ENGINE (NO EXTRA GAPS, NO AWKWARD PAGE SPLITS)
+      // Clean corrupted date strings
+      let cleaned = false;
+      inventory.forEach(i => {
+        if (i.verifiedAt && (String(i.verifiedAt).includes('GMT') || String(i.verifiedAt).includes('Standard Time'))) {
+          i.verifiedAt = '';
+          cleaned = true;
+        }
+      });
+      if (cleaned) {
+        localStorage.setItem(LS_DATA, JSON.stringify(inventory));
+      }
+    });
+
+    // ============================================================================
+    // MASTER FIX 2: 100% EXACT A4 PRINT ENGINE (NO EXTRA GAPS / NO SPLITTING)
     // ============================================================================
     buildSectionPagesHtml = function (items, sectionSubTitle, cfg, secMeta = {}) {
       if (!items.length) return `<div class="p-6 text-center italic bg-white rounded border">इस सेक्शन में कोई आइटम नहीं है।</div>`;
 
-      // Smart dynamic rows per page based on density & orientation
       let targetRows = Number(document.getElementById('pCustomRows')?.value || 0);
       if (targetRows <= 0) {
-        targetRows = cfg.orient === 'landscape' 
-          ? (cfg.density === 'ultra' ? 24 : cfg.density === 'compact' ? 18 : 14)
-          : (cfg.density === 'ultra' ? 32 : cfg.density === 'compact' ? 24 : 18);
+        targetRows = cfg.orient === 'landscape' ? 18 : 26;
       }
-      if (cfg.showSubText) targetRows = Math.max(10, targetRows - 3);
 
       const totalPages = Math.max(1, Math.ceil(items.length / targetRows));
       const lineGapCss = cfg.headerGap === 'ultratight' ? '1.02' : cfg.headerGap === 'tight' ? '1.15' : '1.3';
@@ -4170,21 +4192,21 @@
           const dispStatus = normalizeLabStatus(i.transferStatus, i.classGroup);
           return `
             <tr>
-              <td class="font-mono font-bold" style="width:26px; text-align:${cfg.alignSr};">
-                ${i.sr}${cfg.showClassTag ? ` <span class="font-normal text-[7px]">(${i.classGroup})</span>` : ''}
-                ${cfg.showBillNo ? `<div class="font-normal text-[6.5px] text-slate-600">${i.invoice}</div>` : ''}
+              <td class="font-mono font-bold" style="width:24px; text-align:${cfg.alignSr};">
+                ${i.sr}${cfg.showClassTag ? ` <span class="font-normal text-[6.5px]">(${i.classGroup})</span>` : ''}
+                ${cfg.showBillNo ? `<div class="font-normal text-[6px] text-slate-600">${i.invoice}</div>` : ''}
               </td>
-              ${cfg.showVer ? `<td class="font-semibold" style="width:38px; text-align:${cfg.alignVer};">${i.verified ? '✅ Yes' : '⏳ No'}</td>` : ''}
+              ${cfg.showVer ? `<td class="font-semibold" style="width:34px; text-align:${cfg.alignVer};">${i.verified ? '✅' : '⏳'}</td>` : ''}
               <td style="text-align:${cfg.alignName};">
                 <div class="font-bold">${i.name}</div>
-                ${cfg.showSubText ? `<div class="text-[7px] text-slate-600">${shortSubj(i.subject)} • ${i.category}</div>` : ''}
+                ${cfg.showSubText ? `<div class="text-[6.5px] text-slate-600">${shortSubj(i.subject)} • ${i.category}</div>` : ''}
               </td>
-              ${cfg.showTotalQty ? `<td class="font-bold" style="width:30px; text-align:${cfg.alignQty};">${i.qty}</td>` : ''}
-              ${cfg.showWorkQty ? `<td class="font-bold" style="width:30px; text-align:${cfg.alignQty};">${i.workingQty}</td>` : ''}
-              ${cfg.showDmgQty ? `<td class="font-bold" style="width:30px; text-align:${cfg.alignQty};">${i.damagedQty}</td>` : ''}
-              ${cfg.showLoc ? `<td style="text-align:${cfg.alignLoc};"><span class="font-semibold">${i.lab} • ${i.godrej}</span> <span class="text-[7.5px] text-slate-700">(${i.partition})</span></td>` : ''}
+              ${cfg.showTotalQty ? `<td class="font-bold" style="width:28px; text-align:${cfg.alignQty};">${i.qty}</td>` : ''}
+              ${cfg.showWorkQty ? `<td class="font-bold" style="width:28px; text-align:${cfg.alignQty};">${i.workingQty}</td>` : ''}
+              ${cfg.showDmgQty ? `<td class="font-bold" style="width:28px; text-align:${cfg.alignQty};">${i.damagedQty}</td>` : ''}
+              ${cfg.showLoc ? `<td style="text-align:${cfg.alignLoc};"><span class="font-semibold">${i.lab} • ${i.godrej}</span> <span class="text-[7px] text-slate-700">(${i.partition})</span></td>` : ''}
               ${cfg.showRem ? `<td style="text-align:${cfg.alignRem};"><span class="font-semibold">${dispStatus}</span>${i.issuedTo ? ` • <b>${i.issuedTo}</b>` : ''}${i.remarks ? ` <i>(${i.remarks})</i>` : ''}</td>` : ''}
-              ${cfg.showPrice ? `<td class="font-mono" style="width:48px; text-align:${cfg.alignPrice};"><b>₹${Number(i.amt || 0).toLocaleString('en-IN')}</b></td>` : ''}
+              ${cfg.showPrice ? `<td class="font-mono" style="width:44px; text-align:${cfg.alignPrice};"><b>₹${Number(i.amt || 0).toLocaleString('en-IN')}</b></td>` : ''}
             </tr>
           `;
         }).join('');
@@ -4199,13 +4221,13 @@
           const totAmt = items.reduce((s, x) => s + Number(x.amt || 0), 0);
 
           const qrUrl = `${window.location.origin}${window.location.pathname}?autoPdf=1&cls=${encodeURIComponent(cfg.classMode)}&st=${encodeURIComponent(cfg.statusMode)}`;
-          const qrImgSrc = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(qrUrl)}`;
+          const qrImgSrc = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(qrUrl)}`;
 
           lastPageBlock = `
             <div class="mt-1 border border-black rounded p-1 bg-slate-50 flex justify-between items-center gap-2" style="page-break-inside:avoid;">
               <div class="flex-1">
-                <div class="text-[8.5px] font-bold underline uppercase mb-0.5">📊 INVENTORY SUMMARY (${sectionSubTitle || 'TOTAL STOCK'})</div>
-                <div class="grid grid-cols-3 sm:grid-cols-5 gap-1 text-[7.5px]">
+                <div class="text-[8px] font-bold underline uppercase mb-0.5">📊 INVENTORY SUMMARY (${sectionSubTitle || 'TOTAL STOCK'})</div>
+                <div class="grid grid-cols-3 sm:grid-cols-5 gap-1 text-[7px]">
                   <div><strong>Listed:</strong> ${totItems}</div>
                   <div><strong>Verified:</strong> ${verItems}/${totItems}</div>
                   <div><strong>Total Qty:</strong> ${totQty}</div>
@@ -4216,25 +4238,25 @@
               </div>
               ${cfg.showQr ? `
                 <div class="text-center shrink-0 border border-slate-400 p-0.5 bg-white rounded">
-                  <img src="${qrImgSrc}" alt="QR PDF" class="w-9 h-9 mx-auto">
-                  <div class="text-[5.5px] font-bold">Scan PDF</div>
+                  <img src="${qrImgSrc}" alt="QR PDF" class="w-8 h-8 mx-auto">
+                  <div class="text-[5px] font-bold">PDF QR</div>
                 </div>
               ` : ''}
             </div>
 
-            <div class="flex justify-between items-end pt-3 pb-0.5 px-2 text-[8px] font-bold" style="page-break-inside:avoid;">
+            <div class="flex justify-between items-end pt-2 pb-0.5 px-2 text-[7.5px] font-bold" style="page-break-inside:avoid;">
               <div class="text-center border-t border-black pt-0.5 w-40">
                 ${cfg.showSignName ? signPersonName : 'Lab In-charge Signature'}<br>
-                <span class="font-normal text-[6.5px]">${signPersonRole}</span>
+                <span class="font-normal text-[6px]">${signPersonRole}</span>
               </div>
               ${cfg.showFinalReceiver ? `
                 <div class="text-center border-t border-black pt-0.5 w-36">
-                  Receiving In-charge Sign<br><span class="font-normal text-[6.5px]">(9-10 ISM / Chem / Bio Lab)</span>
+                  Receiving In-charge Sign<br><span class="font-normal text-[6px]">(9-10 ISM / Chem / Bio Lab)</span>
                 </div>
               ` : ''}
               <div class="text-center border-t border-black pt-0.5 w-36">
                 ${cfg.showSignName ? 'Sri Manoj Kumar Mishra' : 'Headmaster Signature'}<br>
-                <span class="font-normal text-[6.5px]">Headmaster In-charge</span>
+                <span class="font-normal text-[6px]">Headmaster In-charge</span>
               </div>
             </div>
           `;
@@ -4242,8 +4264,8 @@
 
         const signNameSuffix = cfg.showSignName ? ` (${footerShortName})` : '';
         const hmNameSuffix = cfg.showSignName ? ` (Manoj Kr. Mishra)` : '';
-        const footerLeft = cfg.everyPageLabSign ? `<span><strong>Lab Sign:</strong> _________${signNameSuffix}</span>` : `<span></span>`;
-        const footerRight = cfg.everyPageHmSign ? `<span><strong>HM Sign:</strong> _________${hmNameSuffix}</span>` : `<span></span>`;
+        const footerLeft = cfg.everyPageLabSign ? `<span><strong>Lab Sign:</strong> _____${signNameSuffix}</span>` : `<span></span>`;
+        const footerRight = cfg.everyPageHmSign ? `<span><strong>HM Sign:</strong> _____${hmNameSuffix}</span>` : `<span></span>`;
         const midMeta = [
           cfg.showFooterSchool ? 'Mano Baijnath +2 H.S.' : '',
           cfg.showWatermark ? 'LabTrack' : '',
@@ -4256,21 +4278,21 @@
             <table class="p-doc-table">
               <thead>
                 <tr class="bg-slate-200 uppercase">
-                  <th style="width:26px; text-align:${cfg.alignSr};">Sr</th>
+                  <th style="width:24px; text-align:${cfg.alignSr};">Sr</th>
                   ${cfg.showVer ? `<th style="width:38px; text-align:${cfg.alignVer};">Verify</th>` : ''}
                   <th style="text-align:${cfg.alignName};">Particulars / Item Name</th>
-                  ${cfg.showTotalQty ? `<th style="width:30px; text-align:${cfg.alignQty};">Qty</th>` : ''}
-                  ${cfg.showWorkQty ? `<th style="width:30px; text-align:${cfg.alignQty};">OK</th>` : ''}
-                  ${cfg.showDmgQty ? `<th style="width:30px; text-align:${cfg.alignQty};">Dmg</th>` : ''}
+                  ${cfg.showTotalQty ? `<th style="width:28px; text-align:${cfg.alignQty};">Qty</th>` : ''}
+                  ${cfg.showWorkQty ? `<th style="width:28px; text-align:${cfg.alignQty};">OK</th>` : ''}
+                  ${cfg.showDmgQty ? `<th style="width:28px; text-align:${cfg.alignQty};">Dmg</th>` : ''}
                   ${cfg.showLoc ? `<th style="text-align:${cfg.alignLoc};">Location (Lab • Godrej • Partition)</th>` : ''}
                   ${cfg.showRem ? `<th style="text-align:${cfg.alignRem};">Remarks</th>` : ''}
-                  ${cfg.showPrice ? `<th style="width:48px; text-align:${cfg.alignPrice};">Amt</th>` : ''}
+                  ${cfg.showPrice ? `<th style="width:44px; text-align:${cfg.alignPrice};">Amt</th>` : ''}
                 </tr>
               </thead>
               <tbody>${rowsHtml}</tbody>
             </table>
             ${lastPageBlock}
-            <div class="flex justify-between items-center border-t border-dashed border-slate-400 pt-0.5 mt-1 text-[7px]">
+            <div class="flex justify-between items-center border-t border-dashed border-slate-400 pt-0.5 mt-0.5 text-[7px]">
               ${footerLeft}
               <span class="text-slate-600 font-semibold">${midMeta}</span>
               ${footerRight}
@@ -4281,11 +4303,10 @@
       return pagesHtml;
     };
 
-    // Strict Print CSS to ensure 100% exact match between screen preview & printer output
-    const exactPrintFixStyle = document.createElement('style');
-    exactPrintFixStyle.innerHTML = `
+    const robustPrintCss = document.createElement('style');
+    robustPrintCss.innerHTML = `
       @media print {
-        @page { size: A4 portrait; margin: 4mm !important; }
+        @page { size: A4 portrait; margin: 3mm !important; }
         html, body {
           height: auto !important;
           overflow: visible !important;
@@ -4306,13 +4327,13 @@
           box-sizing: border-box !important;
           width: 100% !important;
           max-width: 100% !important;
-          min-height: 96vh !important;
-          max-height: 98vh !important;
+          min-height: 98vh !important;
+          max-height: 100vh !important;
           display: flex !important;
           flex-direction: column !important;
           justify-content: space-between !important;
           margin: 0 !important;
-          padding: 2mm !important;
+          padding: 1mm !important;
           border: none !important;
           box-shadow: none !important;
           page-break-inside: avoid !important;
@@ -4328,15 +4349,16 @@
           flex: 1 !important;
         }
         .p-doc-table th, .p-doc-table td {
-          padding: 1.5px 3px !important;
-          font-size: 8px !important;
-          line-height: 1.08 !important;
+          padding: 1px 2.5px !important;
+          font-size: 7.5px !important;
+          line-height: 1.05 !important;
           border: 1px solid #000 !important;
         }
       }
     `;
-    document.head.appendChild(exactPrintFixStyle);
+    document.head.appendChild(robustPrintCss);
 
+    
   </script>
 </body>
 </html>
