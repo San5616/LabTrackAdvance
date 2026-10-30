@@ -4102,40 +4102,197 @@
       openModal('printModal');
     };
 
-        // ============================================================================
-    // FINAL A4 PRINT PAGE-SPLIT ELIMINATOR + CUSTOM ROWS-PER-PAGE SELECTOR
+            // ============================================================================
+    // PERFECT A4 PRINT AUTO-FIT ENGINE (NO EXTRA GAPS, NO AWKWARD PAGE SPLITS)
     // ============================================================================
-    window.addEventListener('DOMContentLoaded', () => {
-      // Print Studio के Tab 3 (Fonts & Gap) में "Rows Per Page" का ड्रॉपडाउन जोड़ें
-      const densitySel = document.getElementById('pDensity');
-      if (densitySel && !document.getElementById('pCustomRows')) {
-        const rowSel = document.createElement('select');
-        rowSel.id = 'pCustomRows';
-        rowSel.onchange = () => updateLivePrintPreview();
-        rowSel.className = 'w-full p-1 mt-1 border rounded bg-indigo-50 dark:bg-slate-800 font-bold text-indigo-700 dark:text-indigo-300 text-[10.5px]';
-        rowSel.innerHTML = `
-          <option value="25" selected>📏 25 Rows / Page (Best for A4 Portrait)</option>
-          <option value="22">📏 22 Rows / Page (Spacious A4)</option>
-          <option value="28">📏 28 Rows / Page (Tight A4)</option>
-          <option value="32">📏 32 Rows / Page (When 1-Line Rows)</option>
-          <option value="16">📏 16 Rows / Page (Best for Landscape)</option>
-          <option value="0">⚙️ Auto Calculate Rows</option>
-        `;
-        densitySel.parentNode.appendChild(rowSel);
-      }
-    });
+    buildSectionPagesHtml = function (items, sectionSubTitle, cfg, secMeta = {}) {
+      if (!items.length) return `<div class="p-6 text-center italic bg-white rounded border">इस सेक्शन में कोई आइटम नहीं है।</div>`;
 
-    // मोबाइल के A4 प्रिंटर के लिए सटीक कॉम्पैक्ट मार्जिन और पैडिंग ताकि पन्ना कभी 2 हिस्सों में न टूटे
-    const finalPrintFixStyle = document.createElement('style');
-    finalPrintFixStyle.innerHTML = `
+      // Smart dynamic rows per page based on density & orientation
+      let targetRows = Number(document.getElementById('pCustomRows')?.value || 0);
+      if (targetRows <= 0) {
+        targetRows = cfg.orient === 'landscape' 
+          ? (cfg.density === 'ultra' ? 24 : cfg.density === 'compact' ? 18 : 14)
+          : (cfg.density === 'ultra' ? 32 : cfg.density === 'compact' ? 24 : 18);
+      }
+      if (cfg.showSubText) targetRows = Math.max(10, targetRows - 3);
+
+      const totalPages = Math.max(1, Math.ceil(items.length / targetRows));
+      const lineGapCss = cfg.headerGap === 'ultratight' ? '1.02' : cfg.headerGap === 'tight' ? '1.15' : '1.3';
+
+      const activeTitle = secMeta.title || cfg.title;
+      const activeIncharges = secMeta.inchargesHtml !== undefined ? secMeta.inchargesHtml : cfg.inchargesHtml;
+      const activeRunHeader = secMeta.runHeader || cfg.runHeaderText;
+      const signPersonName = secMeta.signName || 'Sri Sanjeet Kumar';
+      const signPersonRole = secMeta.signRole || 'Physics Lab In-charge (11-12)';
+      const footerShortName = secMeta.shortSignName || 'Sanjeet Kumar';
+
+      let pagesHtml = '';
+
+      for (let p = 0; p < totalPages; p++) {
+        const slice = items.slice(p * targetRows, (p + 1) * targetRows);
+        const isFirstPage = p === 0;
+        const isLastPage = p === totalPages - 1;
+        const pageNoText = cfg.pageNumMode === 'PAGE_OF'
+          ? `Page ${p + 1} of ${totalPages}`
+          : cfg.pageNumMode === 'SIMPLE'
+          ? `Page ${p + 1}`
+          : '';
+
+        let headerHtml = '';
+        if (isFirstPage) {
+          headerHtml = `
+            <div class="border-b border-black pb-1 mb-1 text-center" style="line-height:${lineGapCss};">
+              <div class="font-bold uppercase tracking-tight" style="font-size:${cfg.schoolFont};">
+                Mano Baijnath +2 High School, Kulharia
+              </div>
+              <div class="font-semibold text-slate-800" style="font-size:${cfg.subFont};">
+                Dist: Bhojpur (Bihar) | UDISE Code: 10290404007
+              </div>
+              <div class="font-bold underline uppercase" style="font-size:${cfg.subFont};">
+                ${activeTitle}${sectionSubTitle ? ' — ' + sectionSubTitle : ''}
+              </div>
+              <div class="flex flex-wrap justify-between items-center gap-x-2 pt-0.5 mt-0.5 border-t border-slate-400" style="font-size:${cfg.subFont}; line-height:1.1;">
+                ${activeIncharges}
+                ${cfg.showDateTime ? `<div><strong>Printed:</strong> ${cfg.dateTimeStr}</div>` : ''}
+              </div>
+            </div>
+          `;
+        } else if (cfg.showRunHeader) {
+          headerHtml = `
+            <div class="border-b border-slate-500 pb-0.5 mb-1 font-bold" style="font-size:${cfg.subFont}; text-align:${cfg.runHdrAlign};">
+              ${activeRunHeader} ${sectionSubTitle ? `(${sectionSubTitle})` : ''}
+            </div>
+          `;
+        }
+
+        const rowsHtml = slice.map(i => {
+          const dispStatus = normalizeLabStatus(i.transferStatus, i.classGroup);
+          return `
+            <tr>
+              <td class="font-mono font-bold" style="width:26px; text-align:${cfg.alignSr};">
+                ${i.sr}${cfg.showClassTag ? ` <span class="font-normal text-[7px]">(${i.classGroup})</span>` : ''}
+                ${cfg.showBillNo ? `<div class="font-normal text-[6.5px] text-slate-600">${i.invoice}</div>` : ''}
+              </td>
+              ${cfg.showVer ? `<td class="font-semibold" style="width:38px; text-align:${cfg.alignVer};">${i.verified ? '✅ Yes' : '⏳ No'}</td>` : ''}
+              <td style="text-align:${cfg.alignName};">
+                <div class="font-bold">${i.name}</div>
+                ${cfg.showSubText ? `<div class="text-[7px] text-slate-600">${shortSubj(i.subject)} • ${i.category}</div>` : ''}
+              </td>
+              ${cfg.showTotalQty ? `<td class="font-bold" style="width:30px; text-align:${cfg.alignQty};">${i.qty}</td>` : ''}
+              ${cfg.showWorkQty ? `<td class="font-bold" style="width:30px; text-align:${cfg.alignQty};">${i.workingQty}</td>` : ''}
+              ${cfg.showDmgQty ? `<td class="font-bold" style="width:30px; text-align:${cfg.alignQty};">${i.damagedQty}</td>` : ''}
+              ${cfg.showLoc ? `<td style="text-align:${cfg.alignLoc};"><span class="font-semibold">${i.lab} • ${i.godrej}</span> <span class="text-[7.5px] text-slate-700">(${i.partition})</span></td>` : ''}
+              ${cfg.showRem ? `<td style="text-align:${cfg.alignRem};"><span class="font-semibold">${dispStatus}</span>${i.issuedTo ? ` • <b>${i.issuedTo}</b>` : ''}${i.remarks ? ` <i>(${i.remarks})</i>` : ''}</td>` : ''}
+              ${cfg.showPrice ? `<td class="font-mono" style="width:48px; text-align:${cfg.alignPrice};"><b>₹${Number(i.amt || 0).toLocaleString('en-IN')}</b></td>` : ''}
+            </tr>
+          `;
+        }).join('');
+
+        let lastPageBlock = '';
+        if (isLastPage && cfg.showLastSummary) {
+          const totItems = items.length;
+          const verItems = items.filter(x => x.verified).length;
+          const totQty = items.reduce((s, x) => s + Number(x.qty || 0), 0);
+          const okQty = items.reduce((s, x) => s + Number(x.workingQty || 0), 0);
+          const dmgQty = items.reduce((s, x) => s + Number(x.damagedQty || 0), 0);
+          const totAmt = items.reduce((s, x) => s + Number(x.amt || 0), 0);
+
+          const qrUrl = `${window.location.origin}${window.location.pathname}?autoPdf=1&cls=${encodeURIComponent(cfg.classMode)}&st=${encodeURIComponent(cfg.statusMode)}`;
+          const qrImgSrc = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(qrUrl)}`;
+
+          lastPageBlock = `
+            <div class="mt-1 border border-black rounded p-1 bg-slate-50 flex justify-between items-center gap-2" style="page-break-inside:avoid;">
+              <div class="flex-1">
+                <div class="text-[8.5px] font-bold underline uppercase mb-0.5">📊 INVENTORY SUMMARY (${sectionSubTitle || 'TOTAL STOCK'})</div>
+                <div class="grid grid-cols-3 sm:grid-cols-5 gap-1 text-[7.5px]">
+                  <div><strong>Listed:</strong> ${totItems}</div>
+                  <div><strong>Verified:</strong> ${verItems}/${totItems}</div>
+                  <div><strong>Total Qty:</strong> ${totQty}</div>
+                  <div><strong>Working:</strong> ${okQty}</div>
+                  <div><strong>Damaged:</strong> ${dmgQty}</div>
+                  ${cfg.showPrice ? `<div><strong>Value:</strong> ₹${totAmt.toLocaleString('en-IN')}</div>` : ''}
+                </div>
+              </div>
+              ${cfg.showQr ? `
+                <div class="text-center shrink-0 border border-slate-400 p-0.5 bg-white rounded">
+                  <img src="${qrImgSrc}" alt="QR PDF" class="w-9 h-9 mx-auto">
+                  <div class="text-[5.5px] font-bold">Scan PDF</div>
+                </div>
+              ` : ''}
+            </div>
+
+            <div class="flex justify-between items-end pt-3 pb-0.5 px-2 text-[8px] font-bold" style="page-break-inside:avoid;">
+              <div class="text-center border-t border-black pt-0.5 w-40">
+                ${cfg.showSignName ? signPersonName : 'Lab In-charge Signature'}<br>
+                <span class="font-normal text-[6.5px]">${signPersonRole}</span>
+              </div>
+              ${cfg.showFinalReceiver ? `
+                <div class="text-center border-t border-black pt-0.5 w-36">
+                  Receiving In-charge Sign<br><span class="font-normal text-[6.5px]">(9-10 ISM / Chem / Bio Lab)</span>
+                </div>
+              ` : ''}
+              <div class="text-center border-t border-black pt-0.5 w-36">
+                ${cfg.showSignName ? 'Sri Manoj Kumar Mishra' : 'Headmaster Signature'}<br>
+                <span class="font-normal text-[6.5px]">Headmaster In-charge</span>
+              </div>
+            </div>
+          `;
+        }
+
+        const signNameSuffix = cfg.showSignName ? ` (${footerShortName})` : '';
+        const hmNameSuffix = cfg.showSignName ? ` (Manoj Kr. Mishra)` : '';
+        const footerLeft = cfg.everyPageLabSign ? `<span><strong>Lab Sign:</strong> _________${signNameSuffix}</span>` : `<span></span>`;
+        const footerRight = cfg.everyPageHmSign ? `<span><strong>HM Sign:</strong> _________${hmNameSuffix}</span>` : `<span></span>`;
+        const midMeta = [
+          cfg.showFooterSchool ? 'Mano Baijnath +2 H.S.' : '',
+          cfg.showWatermark ? 'LabTrack' : '',
+          pageNoText
+        ].filter(Boolean).join(' • ');
+
+        pagesHtml += `
+          <div class="p-page-card orient-${cfg.orient} density-${cfg.density} ${p > 0 ? 'page-break-section' : ''}">
+            ${headerHtml}
+            <table class="p-doc-table">
+              <thead>
+                <tr class="bg-slate-200 uppercase">
+                  <th style="width:26px; text-align:${cfg.alignSr};">Sr</th>
+                  ${cfg.showVer ? `<th style="width:38px; text-align:${cfg.alignVer};">Verify</th>` : ''}
+                  <th style="text-align:${cfg.alignName};">Particulars / Item Name</th>
+                  ${cfg.showTotalQty ? `<th style="width:30px; text-align:${cfg.alignQty};">Qty</th>` : ''}
+                  ${cfg.showWorkQty ? `<th style="width:30px; text-align:${cfg.alignQty};">OK</th>` : ''}
+                  ${cfg.showDmgQty ? `<th style="width:30px; text-align:${cfg.alignQty};">Dmg</th>` : ''}
+                  ${cfg.showLoc ? `<th style="text-align:${cfg.alignLoc};">Location (Lab • Godrej • Partition)</th>` : ''}
+                  ${cfg.showRem ? `<th style="text-align:${cfg.alignRem};">Remarks</th>` : ''}
+                  ${cfg.showPrice ? `<th style="width:48px; text-align:${cfg.alignPrice};">Amt</th>` : ''}
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+            ${lastPageBlock}
+            <div class="flex justify-between items-center border-t border-dashed border-slate-400 pt-0.5 mt-1 text-[7px]">
+              ${footerLeft}
+              <span class="text-slate-600 font-semibold">${midMeta}</span>
+              ${footerRight}
+            </div>
+          </div>
+        `;
+      }
+      return pagesHtml;
+    };
+
+    // Strict Print CSS to ensure 100% exact match between screen preview & printer output
+    const exactPrintFixStyle = document.createElement('style');
+    exactPrintFixStyle.innerHTML = `
       @media print {
-        @page { margin: 5mm !important; }
+        @page { size: A4 portrait; margin: 4mm !important; }
         html, body {
           height: auto !important;
-          min-height: 0 !important;
           overflow: visible !important;
           margin: 0 !important;
           padding: 0 !important;
+          background: #fff !important;
+          color: #000 !important;
         }
         header, main, nav, #multiSelectBar, #fullScreenSecurityLock, .no-print {
           display: none !important;
@@ -4143,14 +4300,19 @@
         #dedicatedPrintMount {
           display: block !important;
           width: 100% !important;
+          position: static !important;
         }
         .p-page-card {
-          min-height: 0 !important;
-          height: auto !important;
-          max-height: none !important;
-          display: block !important;
+          box-sizing: border-box !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          min-height: 96vh !important;
+          max-height: 98vh !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: space-between !important;
           margin: 0 !important;
-          padding: 0 !important;
+          padding: 2mm !important;
           border: none !important;
           box-shadow: none !important;
           page-break-inside: avoid !important;
@@ -4162,16 +4324,19 @@
           page-break-after: auto !important;
           break-after: auto !important;
         }
+        .p-doc-table {
+          flex: 1 !important;
+        }
         .p-doc-table th, .p-doc-table td {
-          padding: 2px 3.5px !important;
-          font-size: 8.5px !important;
-          line-height: 1.12 !important;
+          padding: 1.5px 3px !important;
+          font-size: 8px !important;
+          line-height: 1.08 !important;
+          border: 1px solid #000 !important;
         }
       }
     `;
-    document.head.appendChild(finalPrintFixStyle);
+    document.head.appendChild(exactPrintFixStyle);
 
-  
   </script>
 </body>
 </html>
