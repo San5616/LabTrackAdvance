@@ -2209,10 +2209,12 @@
     function buildSectionPagesHtml(items, sectionSubTitle, cfg, secMeta = {}) {
       if (!items.length) return `<div class="p-6 text-center italic bg-white rounded border">इस सेक्शन में कोई आइटम नहीं है।</div>`;
 
-      const subTextBonus = cfg.showSubText ? 0 : 8;
-      const rowsPerPage = (cfg.orient === 'landscape'
-        ? (cfg.density === 'ultra' ? 30 : cfg.density === 'compact' ? 22 : 15)
-        : (cfg.density === 'ultra' ? 44 : cfg.density === 'compact' ? 30 : 20)) + subTextBonus;
+            const subTextBonus = cfg.showSubText ? 0 : 3;
+      const customRows = Number(document.getElementById('pCustomRows')?.value || 0);
+      const rowsPerPage = customRows > 0 ? customRows : ((cfg.orient === 'landscape'
+        ? (cfg.density === 'ultra' ? 18 : cfg.density === 'compact' ? 15 : 12)
+        : (cfg.density === 'ultra' ? 26 : cfg.density === 'compact' ? 22 : 17)) + subTextBonus);
+
 
       const totalPages = Math.max(1, Math.ceil(items.length / rowsPerPage));
       const lineGapCss = cfg.headerGap === 'ultratight' ? '1.05' : cfg.headerGap === 'tight' ? '1.2' : '1.4';
@@ -4100,28 +4102,74 @@
       openModal('printModal');
     };
 
-    // Fix A4 Portrait / Landscape Bottom Gap by increasing rows per page & auto-printing cleanly on QR scan
-    const _origBuildSectionPages = buildSectionPagesHtml;
-    buildSectionPagesHtml = function (items, sectionSubTitle, cfg, secMeta = {}) {
-      // Temporarily boost row capacity in Portrait/Landscape so full A4 height is utilized
-      const origOrient = cfg.orient;
-      const html = _origBuildSectionPages(items, sectionSubTitle, cfg, secMeta);
-      return html;
-    };
+        // ============================================================================
+    // FINAL A4 PRINT PAGE-SPLIT ELIMINATOR + CUSTOM ROWS-PER-PAGE SELECTOR
+    // ============================================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      // Print Studio के Tab 3 (Fonts & Gap) में "Rows Per Page" का ड्रॉपडाउन जोड़ें
+      const densitySel = document.getElementById('pDensity');
+      if (densitySel && !document.getElementById('pCustomRows')) {
+        const rowSel = document.createElement('select');
+        rowSel.id = 'pCustomRows';
+        rowSel.onchange = () => updateLivePrintPreview();
+        rowSel.className = 'w-full p-1 mt-1 border rounded bg-indigo-50 dark:bg-slate-800 font-bold text-indigo-700 dark:text-indigo-300 text-[10.5px]';
+        rowSel.innerHTML = `
+          <option value="25" selected>📏 25 Rows / Page (Best for A4 Portrait)</option>
+          <option value="22">📏 22 Rows / Page (Spacious A4)</option>
+          <option value="28">📏 28 Rows / Page (Tight A4)</option>
+          <option value="32">📏 32 Rows / Page (When 1-Line Rows)</option>
+          <option value="16">📏 16 Rows / Page (Best for Landscape)</option>
+          <option value="0">⚙️ Auto Calculate Rows</option>
+        `;
+        densitySel.parentNode.appendChild(rowSel);
+      }
+    });
 
-    // Add Print CSS rule so A4 pages fill full height and never clip in mobile print preview
-    const extraPrintCss = document.createElement('style');
-    extraPrintCss.innerHTML = `
+    // मोबाइल के A4 प्रिंटर के लिए सटीक कॉम्पैक्ट मार्जिन और पैडिंग ताकि पन्ना कभी 2 हिस्सों में न टूटे
+    const finalPrintFixStyle = document.createElement('style');
+    finalPrintFixStyle.innerHTML = `
       @media print {
-        html, body { height: auto !important; min-height: 100% !important; overflow: visible !important; }
-        #fullScreenSecurityLock { display: none !important; }
-        #dedicatedPrintMount { display: block !important; position: static !important; width: 100% !important; }
-        .p-page-card { min-height: 94vh; display: flex; flex-direction: column; justify-content: space-between; page-break-after: always; }
-        .p-page-card:last-child { page-break-after: auto; min-height: auto; }
-        .p-doc-table { flex: 1; }
+        @page { margin: 5mm !important; }
+        html, body {
+          height: auto !important;
+          min-height: 0 !important;
+          overflow: visible !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        header, main, nav, #multiSelectBar, #fullScreenSecurityLock, .no-print {
+          display: none !important;
+        }
+        #dedicatedPrintMount {
+          display: block !important;
+          width: 100% !important;
+        }
+        .p-page-card {
+          min-height: 0 !important;
+          height: auto !important;
+          max-height: none !important;
+          display: block !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          border: none !important;
+          box-shadow: none !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          page-break-after: always !important;
+          break-after: page !important;
+        }
+        .p-page-card:last-child {
+          page-break-after: auto !important;
+          break-after: auto !important;
+        }
+        .p-doc-table th, .p-doc-table td {
+          padding: 2px 3.5px !important;
+          font-size: 8.5px !important;
+          line-height: 1.12 !important;
+        }
       }
     `;
-    document.head.appendChild(extraPrintCss);
+    document.head.appendChild(finalPrintFixStyle);
 
   
   </script>
